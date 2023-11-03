@@ -1,4 +1,4 @@
-use cif::{CifWriter, Ion};
+use cif::{write_cif, Ion};
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use rand_seeder::Seeder;
@@ -61,11 +61,14 @@ impl<const S: usize> Model<S> {
             bad_moves: 0,
             rejected_moves: 0,
         };
-        out.get_tot_energy();
+        out.calc_hamiltonian();
         out
     }
 
-    pub fn get_tot_energy(&mut self) -> f32 {
+    pub fn get_hamiltonian(&self) -> f32 {
+        self.hamiltonian
+    }
+    pub fn calc_hamiltonian(&mut self) -> f32 {
         let mut res = 0.0;
         for i in 0..(S as isize) {
             for j in 0..(S as isize) {
@@ -78,6 +81,12 @@ impl<const S: usize> Model<S> {
         }
         self.hamiltonian = res;
         res
+    }
+
+    pub fn print_counters(&self) {
+        println!("good moves: {}", self.good_moves);
+        println!("bad moves: {}", self.bad_moves);
+        println!("rejected moves: {}", self.rejected_moves);
     }
 
     // vacancy position !!!!
@@ -97,66 +106,66 @@ impl<const S: usize> Model<S> {
 
     #[inline]
     fn diags_around(&self, idx: Index) -> i8 {
-        let (x, y, z) = idx;
-        let mut sum = self.grid[(x, y + 1, z)] * self.grid[(x, y, z + 1)]
-            + self.grid[(x, y, z + 1)] * self.grid[(x, y - 1, z)]
-            + self.grid[(x, y - 1, z)] * self.grid[(x, y, z - 1)]
-            + self.grid[(x, y, z - 1)] * self.grid[(x, y + 1, z)];
+        let (i, j, k) = idx;
+        let mut sum = self.grid[(i, j + 1, k)] * self.grid[(i, j, k + 1)]
+            + self.grid[(i, j, k + 1)] * self.grid[(i, j - 1, k)]
+            + self.grid[(i, j - 1, k)] * self.grid[(i, j, k - 1)]
+            + self.grid[(i, j, k - 1)] * self.grid[(i, j + 1, k)];
 
-        sum += self.grid[(x + 1, y, z)] * self.grid[(x, y, z + 1)]
-            + self.grid[(x, y, z + 1)] * self.grid[(x - 1, y, z)]
-            + self.grid[(x - 1, y, z)] * self.grid[(x, y, z - 1)]
-            + self.grid[(x, y, z - 1)] * self.grid[(x + 1, y, z)];
+        sum += self.grid[(i + 1, j, k)] * self.grid[(i, j, k + 1)]
+            + self.grid[(i, j, k + 1)] * self.grid[(i - 1, j, k)]
+            + self.grid[(i - 1, j, k)] * self.grid[(i, j, k - 1)]
+            + self.grid[(i, j, k - 1)] * self.grid[(i + 1, j, k)];
 
-        sum += self.grid[(x + 1, y, z)] * self.grid[(x, y + 1, z)]
-            + self.grid[(x, y + 1, z)] * self.grid[(x - 1, y, z)]
-            + self.grid[(x - 1, y, z)] * self.grid[(x, y - 1, z)]
-            + self.grid[(x, y - 1, z)] * self.grid[(x + 1, y, z)];
+        sum += self.grid[(i + 1, j, k)] * self.grid[(i, j + 1, k)]
+            + self.grid[(i, j + 1, k)] * self.grid[(i - 1, j, k)]
+            + self.grid[(i - 1, j, k)] * self.grid[(i, j - 1, k)]
+            + self.grid[(i, j - 1, k)] * self.grid[(i + 1, j, k)];
         sum
     }
 
     #[inline]
     fn diags_from(&self, idx: Index) -> i8 {
-        let (x, y, z) = idx;
-        let mut sum = self.grid[(x, y, z)] * self.grid[(x, y + 1, z + 1)]
-            + self.grid[(x, y, z)] * self.grid[(x, y + 1, z - 1)]
-            + self.grid[(x, y, z)] * self.grid[(x, y - 1, z - 1)]
-            + self.grid[(x, y, z)] * self.grid[(x, y - 1, z + 1)];
-        sum += self.grid[(x, y, z)] * self.grid[(x + 1, y, z + 1)]
-            + self.grid[(x, y, z)] * self.grid[(x + 1, y, z - 1)]
-            + self.grid[(x, y, z)] * self.grid[(x - 1, y, z - 1)]
-            + self.grid[(x, y, z)] * self.grid[(x - 1, y, z + 1)];
-        sum += self.grid[(x, y, z)] * self.grid[(x + 1, y + 1, z)]
-            + self.grid[(x, y, z)] * self.grid[(x + 1, y - 1, z)]
-            + self.grid[(x, y, z)] * self.grid[(x - 1, y - 1, z)]
-            + self.grid[(x, y, z)] * self.grid[(x - 1, y + 1, z)];
+        let (i, j, k) = idx;
+        let mut sum = self.grid[(i, j, k)] * self.grid[(i, j + 1, k + 1)]
+            + self.grid[(i, j, k)] * self.grid[(i, j + 1, k - 1)]
+            + self.grid[(i, j, k)] * self.grid[(i, j - 1, k - 1)]
+            + self.grid[(i, j, k)] * self.grid[(i, j - 1, k + 1)];
+        sum += self.grid[(i, j, k)] * self.grid[(i + 1, j, k + 1)]
+            + self.grid[(i, j, k)] * self.grid[(i + 1, j, k - 1)]
+            + self.grid[(i, j, k)] * self.grid[(i - 1, j, k - 1)]
+            + self.grid[(i, j, k)] * self.grid[(i - 1, j, k + 1)];
+        sum += self.grid[(i, j, k)] * self.grid[(i + 1, j + 1, k)]
+            + self.grid[(i, j, k)] * self.grid[(i + 1, j - 1, k)]
+            + self.grid[(i, j, k)] * self.grid[(i - 1, j - 1, k)]
+            + self.grid[(i, j, k)] * self.grid[(i - 1, j + 1, k)];
         sum
     }
 
     #[inline]
     fn axis_through(&self, idx: Index) -> i8 {
-        let (x, y, z) = idx;
-        self.grid[(x - 1, y, z)] * self.grid[(x + 1, y, z)]
-            + self.grid[(x, y - 1, z)] * self.grid[(x, y + 1, z)]
-            + self.grid[(x, y, z - 1)] * self.grid[(x, y, z + 1)]
+        let (i, j, k) = idx;
+        self.grid[(i - 1, j, k)] * self.grid[(i + 1, j, k)]
+            + self.grid[(i, j - 1, k)] * self.grid[(i, j + 1, k)]
+            + self.grid[(i, j, k - 1)] * self.grid[(i, j, k + 1)]
     }
     #[inline]
     fn axis_from(&self, idx: Index) -> i8 {
-        let (x, y, z) = idx;
-        self.grid[(x, y, z)] * self.grid[(x + 2, y, z)]
-            + self.grid[(x, y, z)] * self.grid[(x - 2, y, z)]
-            + self.grid[(x, y, z)] * self.grid[(x, y + 2, z)]
-            + self.grid[(x, y, z)] * self.grid[(x, y - 2, z)]
-            + self.grid[(x, y, z)] * self.grid[(x, y, z + 2)]
-            + self.grid[(x, y, z)] * self.grid[(x, y, z - 2)]
+        let (i, j, k) = idx;
+        self.grid[(i, j, k)] * self.grid[(i + 2, j, k)]
+            + self.grid[(i, j, k)] * self.grid[(i - 2, j, k)]
+            + self.grid[(i, j, k)] * self.grid[(i, j + 2, k)]
+            + self.grid[(i, j, k)] * self.grid[(i, j - 2, k)]
+            + self.grid[(i, j, k)] * self.grid[(i, j, k + 2)]
+            + self.grid[(i, j, k)] * self.grid[(i, j, k - 2)]
     }
 }
 impl<const S: usize> Model<S> {
     fn uniform_idx(&mut self) -> Index {
-        let x = self.rng.gen_range(0..S as isize);
-        let y = self.rng.gen_range(0..S as isize);
-        let z = 2 * self.rng.gen_range(0..(S / 2) as isize) + x % 2 + y % 2 + 1;
-        (x, y, z)
+        let i = self.rng.gen_range(0..S as isize);
+        let j = self.rng.gen_range(0..S as isize);
+        let k = 2 * self.rng.gen_range(0..(S / 2) as isize) + i % 2 + j % 2 + 1;
+        (i, j, k)
     }
 
     fn choose_swap_pos(&mut self) -> (Index, Index) {
@@ -172,7 +181,7 @@ impl<const S: usize> Model<S> {
         let (idx_1, idx_2) = self.choose_swap_pos();
         let e_before = self.energy_around(idx_1) + self.energy_around(idx_2);
         self.swap(idx_1, idx_2);
-        let delta_e = e_before - self.energy_around(idx_1) - self.energy_around(idx_2);
+        let delta_e = e_before - (self.energy_around(idx_1) + self.energy_around(idx_2));
         if delta_e <= 0.0 {
             self.hamiltonian += delta_e;
             self.good_moves += 1;
@@ -192,20 +201,27 @@ impl<const S: usize> Model<S> {
     }
 
     pub fn write_to_cif(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
-        let side= (S/2) as f32 *DIST_MN_MN;
+        let side = (S / 2) as f32 * DIST_MN_MN;
 
         let naming = HashMap::from([
-            (-1, None),
             (0, Some(Ion::Singlet("Mn"))),
-            (1, Some(Ion::Singlet("Co"))),
+            (
+                -1,
+                Some(Ion::CyanoMetal {
+                    name: "Co",
+                    c_offset: C_CO,
+                    n_offset: C_CO + C_N_BOND,
+                }),
+            ),
+            (
+                1,
+                Some(Ion::CyanoMetal {
+                    name: "Co",
+                    c_offset: C_CO,
+                    n_offset: C_CO + C_N_BOND,
+                }),
+            ),
         ]);
-        let writer = CifWriter{
-            cell_a: side,
-            cell_b: side,
-            cell_c: side,
-            naming,
-            grid: &self.grid,
-        };
-        writer.write_to_file(path)
+        write_cif(&self.grid, side, side, side, naming, path)
     }
 }

@@ -81,9 +81,9 @@ impl<T, const W: usize, const H: usize, const D: usize> Array3d<T, W, H, D> {
         unsafe { std::slice::from_raw_parts(self.grid.as_ptr().cast(), W * H * D) }
     }
 
-    pub fn as_flat_slice_mut(&mut self) -> &mut [T] {
-        // Safety: the memory layout of [[T; N]; N] is the same as [T]
-        // TODO zero sized types
-        unsafe { std::slice::from_raw_parts_mut(self.grid.as_mut_ptr().cast(), W * H * D) }
-    }
+    // pub fn as_flat_slice_mut(&mut self) -> &mut [T] {
+    //     // Safety: the memory layout of [[T; N]; N] is the same as [T]
+    //     // TODO zero sized types
+    //     unsafe { std::slice::from_raw_parts_mut(self.grid.as_mut_ptr().cast(), W * H * D) }
+    // }
 }
