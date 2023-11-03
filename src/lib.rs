@@ -1,14 +1,22 @@
+use cif::{CifWriter, Ion};
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use rand_seeder::Seeder;
+use std::collections::HashMap;
 use std::fmt::Debug;
-use std::io::Write;
 use std::path::Path;
 
 mod array3d;
 use array3d::Array3d;
+mod cif;
 
 type Index = (isize, isize, isize);
+
+// TODO get correct values
+// these values are all in Angstrom
+const DIST_MN_MN: f32 = 10.1;
+const C_N_BOND: f32 = 1.3;
+const C_CO: f32 = 1.2; // this value is invented.
 
 // let M be the unmodifiable value of the array 0_i8
 // let M' be the of the array 1_i8
@@ -20,6 +28,9 @@ pub struct Model<const S: usize> {
     j_2: f32,
     rng: StdRng,
     hamiltonian: f32,
+    good_moves: u32,
+    bad_moves: u32,
+    rejected_moves: u32,
 }
 
 impl<const S: usize> Model<S> {
@@ -46,6 +57,9 @@ impl<const S: usize> Model<S> {
             j_2,
             rng,
             hamiltonian: 0.0,
+            good_moves: 0,
+            bad_moves: 0,
+            rejected_moves: 0,
         };
         out.get_tot_energy();
         out
@@ -159,10 +173,15 @@ impl<const S: usize> Model<S> {
         let e_before = self.energy_around(idx_1) + self.energy_around(idx_2);
         self.swap(idx_1, idx_2);
         let delta_e = e_before - self.energy_around(idx_1) - self.energy_around(idx_2);
-        if delta_e <= 0.0 || (self.rng.gen::<f32>() < (-beta * delta_e).exp()) {
-            self.hamiltonian += delta_e
+        if delta_e <= 0.0 {
+            self.hamiltonian += delta_e;
+            self.good_moves += 1;
+        } else if self.rng.gen::<f32>() < (-beta * delta_e).exp() {
+            self.hamiltonian += delta_e;
+            self.bad_moves += 1;
         } else {
-            self.swap(idx_1, idx_2)
+            self.swap(idx_1, idx_2);
+            self.rejected_moves += 1;
         }
     }
 
@@ -171,56 +190,22 @@ impl<const S: usize> Model<S> {
         self.grid[idx_1] = self.grid[idx_2];
         self.grid[idx_2] = temp;
     }
-}
 
-impl<const S: usize> Model<S> {
-    pub fn save_cif_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
-        let mut file = std::fs::File::create(path)?;
-        writeln!(file, "{}", CIF_HEADER)?;
-        let len = 1.0 / S as f32;
-        for i in 0..(S as isize) {
-            for j in 0..(S as isize) {
-                for k in 0..(S as isize) {
-                    match self.grid[(i, j, k)] {
-                        0 => writeln!(
-                            file,
-                            "Mn {} {} {}",
-                            i as f32 * len,
-                            j as f32 * len,
-                            k as f32 * len
-                        )?,
-                        1 => writeln!(
-                            file,
-                            "Co {} {} {}",
-                            i as f32 * len,
-                            j as f32 * len,
-                            k as f32 * len
-                        )?,
-                        -1 => (),
-                        _ => unreachable!(),
-                    };
-                }
-            }
-        }
-        Ok(())
+    pub fn write_to_cif(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+        let side= (S/2) as f32 *DIST_MN_MN;
+
+        let naming = HashMap::from([
+            (-1, None),
+            (0, Some(Ion::Singlet("Mn"))),
+            (1, Some(Ion::Singlet("Co"))),
+        ]);
+        let writer = CifWriter{
+            cell_a: side,
+            cell_b: side,
+            cell_c: side,
+            naming,
+            grid: &self.grid,
+        };
+        writer.write_to_file(path)
     }
 }
-
-const CIF_HEADER: &'static str = "\
-    data_struct
-    _symmetry_space_group_name_H-M   'P 1'
-    _cell_length_a                   51.70000000
-    _cell_length_b                   51.70000000
-    _cell_length_c                   51.70000000
-    _cell_angle_alpha                90.000000
-    _cell_angle_beta                 90.000000
-    _cell_angle_gamma                90.000000
-    loop_
-    _symmetry_equiv_pos_as_xyz
-    x,y,z
-    loop_
-    _atom_site_label
-    _atom_site_fract_x
-    _atom_site_fract_y
-    _atom_site_fract_z
-";
