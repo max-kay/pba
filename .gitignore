@@ -1,2 +1,6 @@
 /target
-/cif_files
+/.vscode
+**/.DS_Store
+
+/cif
+/csv

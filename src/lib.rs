@@ -9,18 +9,18 @@ mod array3d;
 use array3d::Array3d;
 mod cif;
 pub use cif::Ion;
+mod stats;
+pub use stats::StreamingStats;
+mod logs;
+pub use logs::CsvLogger;
 
 type Index = (isize, isize, isize);
 
-// TODO get correct values
-// these values are all in Angstrom
+
 const DIST_MN_MN: f32 = 10.0003;
 const CO_C: f32 = 1.89;
-const CO_N: f32 = 3.03; // this value is invented.
+const CO_N: f32 = 3.03;
 
-// let M be the unmodifiable value of the array 0_i8
-// let M' be the of the array 1_i8
-// let M' be the vacancy of the array -1_i8
 #[derive(Debug)]
 pub struct Model<const S: usize> {
     /// The grid where the Ions are stored.
@@ -30,11 +30,11 @@ pub struct Model<const S: usize> {
     grid: Array3d<i8, S, S, S>,
     /// The interaction energy of nearest neighbours
     j_1: f32,
-    /// TODO
+    /// sum over the nearest neighbours
     nearest_neighbours: i64,
     /// The interaction energy of nect nearest neighbours
     j_2: f32,
-    /// TODO
+    /// sum over the nearest neighbours
     next_nearest_neighbours: i64,
     /// The random number generator
     rng: StdRng,
