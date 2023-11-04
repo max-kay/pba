@@ -14,9 +14,9 @@ type Index = (isize, isize, isize);
 
 // TODO get correct values
 // these values are all in Angstrom
-const DIST_MN_MN: f32 = 10.1;
-const C_N_BOND: f32 = 1.3;
-const C_CO: f32 = 1.2; // this value is invented.
+const DIST_MN_MN: f32 = 10.0003;
+const CO_C: f32 = 1.89;
+const CO_N: f32 = 3.03; // this value is invented.
 
 // let M be the unmodifiable value of the array 0_i8
 // let M' be the of the array 1_i8
@@ -260,21 +260,14 @@ impl<const S: usize> Model<S> {
         let naming = HashMap::from([
             (0, Some(Ion::Singlet("Mn"))),
             (
-                -1,
-                Some(Ion::Cyanometalate {
-                    name: "Co",
-                    c_offset: C_CO,
-                    n_offset: C_CO + C_N_BOND,
-                }),
-            ),
-            (
                 1,
                 Some(Ion::Cyanometalate {
                     name: "Co",
-                    c_offset: C_CO,
-                    n_offset: C_CO + C_N_BOND,
+                    c_offset: CO_C,
+                    n_offset: CO_N,
                 }),
             ),
+            (-1, None),
         ]);
         cif::write_cif(&self.grid, side, side, side, naming, path)
     }
