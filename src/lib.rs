@@ -1,4 +1,3 @@
-use cif::{write_cif, Ion};
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use rand_seeder::Seeder;
@@ -9,6 +8,7 @@ use std::path::Path;
 mod array3d;
 use array3d::Array3d;
 mod cif;
+pub use cif::Ion;
 
 type Index = (isize, isize, isize);
 
@@ -36,8 +36,6 @@ pub struct Model<const S: usize> {
     j_2: f32,
     /// TODO
     next_nearest_neighbours: i64,
-    /// The hamiltonian of the system
-    hamiltonian: f32,
     /// The random number generator
     rng: StdRng,
     /// The number of moves where the difference in energy was negative
@@ -49,6 +47,7 @@ pub struct Model<const S: usize> {
 }
 
 impl<const S: usize> Model<S> {
+    /// Constructor for the Model
     pub fn new(j_1: f32, j_2: f32, fill_frac: f64, seed: Option<&'static str>) -> Self {
         assert!(S % 2 == 0, "grid need to have side length 2*N");
         let mut rng = if let Some(seed) = seed {
@@ -72,16 +71,20 @@ impl<const S: usize> Model<S> {
             nearest_neighbours: 0,
             j_2,
             next_nearest_neighbours: 0,
-            hamiltonian: 0.0,
             good_moves: 0,
             bad_moves: 0,
             rejected_moves: 0,
             rng,
         };
         out.calc_hamiltonian();
+        assert!(
+            out.fill_frac() != 0.0,
+            "The fill fraction of the start was zero! Rerun with different seed!"
+        );
         out
     }
 
+    /// Updates the nearest neighbour and next nearest neighbour sums and returns the hamiltonian
     pub fn calc_hamiltonian(&mut self) -> f32 {
         self.nearest_neighbours = 0;
         self.next_nearest_neighbours = 0;
@@ -94,42 +97,7 @@ impl<const S: usize> Model<S> {
                 }
             }
         }
-        self.hamiltonian = self.nearest_neighbours as f32 * self.j_1
-            + self.next_nearest_neighbours as f32 * self.j_2;
-        self.hamiltonian
-    }
-
-    pub fn print_hamiltonian(&self) {
-        println!("progressive hamiltonian: {}", self.hamiltonian);
-        println!(
-            "from neighbours: {}",
-            self.nearest_neighbours as f32 * self.j_1
-                + self.next_nearest_neighbours as f32 * self.j_2
-        )
-    }
-
-    pub fn print_neighbours(&self) {
-        println!("nearest neighbours sum: {}", self.nearest_neighbours);
-        println!(
-            "next nearest neighbours sum: {}",
-            self.next_nearest_neighbours
-        );
-    }
-
-    pub fn print_counters(&self) {
-        println!("good moves: {}", self.good_moves);
-        println!("bad moves: {}", self.bad_moves);
-        println!("rejected moves: {}", self.rejected_moves);
-    }
-
-    pub fn fill_frac(&self) -> f64 {
-        let mut counter = 0;
-        for val in self.grid.as_flat_slice() {
-            if *val == 1 {
-                counter += 1;
-            }
-        }
-        counter as f64 / (S * S * S / 2) as f64
+        self.get_hamiltonian()
     }
 }
 
@@ -196,6 +164,7 @@ impl<const S: usize> Model<S> {
 }
 
 impl<const S: usize> Model<S> {
+    /// Chooses an index to a cyanometalate uniformly
     fn uniform_idx(&mut self) -> Index {
         let i = self.rng.gen_range(0..S as isize);
         let j = self.rng.gen_range(0..S as isize);
@@ -203,6 +172,8 @@ impl<const S: usize> Model<S> {
         (i, j, k)
     }
 
+    /// Chooses two indexes to cyanometalates that don't have the same state
+    /// by the rejection acceptance method
     fn choose_swap_pos(&mut self) -> (Index, Index) {
         let idx_1 = self.uniform_idx();
         let mut idx_2 = self.uniform_idx();
@@ -211,24 +182,27 @@ impl<const S: usize> Model<S> {
         }
         (idx_1, idx_2)
     }
-
+    /// Performs a Monte Carlo step.
+    /// Note that $\beta = \frac{1}{T}$
     pub fn monte_carlo_step(&mut self, beta: f32) {
         let (idx_1, idx_2) = self.choose_swap_pos();
         let old_n_neighbours = self.diags_from(idx_1) + self.diags_from(idx_2);
         let old_n_n_neighbours = self.axis_from(idx_1) + self.axis_from(idx_2);
         let old_energy = self.j_1 * old_n_neighbours as f32 + self.j_2 * old_n_n_neighbours as f32;
+
         self.swap(idx_1, idx_2);
+
         let new_n_neighbours = self.diags_from(idx_1) + self.diags_from(idx_2);
         let new_n_n_neighbours = self.axis_from(idx_1) + self.axis_from(idx_2);
         let new_energy = self.j_1 * new_n_neighbours as f32 + self.j_2 * new_n_n_neighbours as f32;
+
         let delta_e = new_energy - old_energy;
+
         if delta_e <= 0.0 {
-            self.hamiltonian += delta_e;
             self.nearest_neighbours += (new_n_neighbours - old_n_neighbours) as i64;
             self.next_nearest_neighbours += (new_n_n_neighbours - old_n_n_neighbours) as i64;
             self.good_moves += 1;
         } else if self.rng.gen::<f32>() < (-beta * delta_e).exp() {
-            self.hamiltonian += delta_e;
             self.nearest_neighbours += (new_n_neighbours - old_n_neighbours) as i64;
             self.next_nearest_neighbours += (new_n_n_neighbours - old_n_n_neighbours) as i64;
             self.bad_moves += 1;
@@ -238,12 +212,48 @@ impl<const S: usize> Model<S> {
         }
     }
 
+    /// Swaps the two indexes in the grid.
     fn swap(&mut self, idx_1: Index, idx_2: Index) {
         let temp = self.grid[idx_1];
         self.grid[idx_1] = self.grid[idx_2];
         self.grid[idx_2] = temp;
     }
+}
 
+impl<const S: usize> Model<S> {
+    /// Gets the hamiltonian
+    pub fn get_hamiltonian(&self) -> f32 {
+        self.nearest_neighbours as f32 * self.j_1 + self.next_nearest_neighbours as f32 * self.j_2
+    }
+
+    /// Prints the nearest neighbour and next nearest neighbour sums
+    pub fn print_neighbours(&self) {
+        println!("nearest neighbours sum: {}", self.nearest_neighbours);
+        println!(
+            "next nearest neighbours sum: {}",
+            self.next_nearest_neighbours
+        );
+    }
+
+    /// Prints the move counters
+    pub fn print_counters(&self) {
+        println!("good moves: {}", self.good_moves);
+        println!("bad moves: {}", self.bad_moves);
+        println!("rejected moves: {}", self.rejected_moves);
+    }
+
+    /// Getter function for the exact fill fraction
+    pub fn fill_frac(&self) -> f64 {
+        let mut counter = 0;
+        for val in self.grid.as_flat_slice() {
+            if *val == 1 {
+                counter += 1;
+            }
+        }
+        counter as f64 / (S * S * S / 2) as f64
+    }
+
+    /// Writes the grid to a cif file
     pub fn write_to_cif(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
         let side = (S / 2) as f32 * DIST_MN_MN;
 
@@ -266,6 +276,6 @@ impl<const S: usize> Model<S> {
                 }),
             ),
         ]);
-        write_cif(&self.grid, side, side, side, naming, path)
+        cif::write_cif(&self.grid, side, side, side, naming, path)
     }
 }

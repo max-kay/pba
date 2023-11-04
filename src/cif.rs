@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs::File, io::Write, path::Path, usize};
 
 use crate::array3d::Array3d;
 
+/// A struct containing all information required to write a cif file
 struct CifWriter<'a, const S: usize> {
     cell_a: f32,
     cell_b: f32,
@@ -14,7 +15,8 @@ struct CifWriter<'a, const S: usize> {
 }
 
 impl<'a, const S: usize> CifWriter<'a, S> {
-    pub fn new(
+    /// Constructor
+    fn new(
         grid: &'a Array3d<i8, S, S, S>,
         cell_a: f32,
         cell_b: f32,
@@ -37,6 +39,7 @@ impl<'a, const S: usize> CifWriter<'a, S> {
 }
 
 impl<const S: usize> CifWriter<'_, S> {
+    /// Make the Header for the cif file
     fn get_header(&self) -> String {
         format!(
             "\
@@ -61,7 +64,8 @@ impl<const S: usize> CifWriter<'_, S> {
         )
     }
 
-    pub fn write_to_file(&mut self) -> std::io::Result<()> {
+    /// Write the cif file
+    fn write_to_file(&mut self) -> std::io::Result<()> {
         writeln!(self.file, "{}", self.get_header())?;
         for i in 0..(S as isize) {
             for j in 0..(S as isize) {
@@ -71,8 +75,6 @@ impl<const S: usize> CifWriter<'_, S> {
                         Some(opt) => {
                             if let Some(ion) = opt {
                                 self.place_ion(*ion, self.index_to_armstong(i, j, k))?
-                            } else {
-                                println!("omiited {}", val)
                             }
                         }
                         None => eprintln!("failed to get name for {}", val),
@@ -83,7 +85,8 @@ impl<const S: usize> CifWriter<'_, S> {
         Ok(())
     }
 
-    pub fn place_ion(&mut self, ion: Ion, coord_armstrong: Vector3<f32>) -> std::io::Result<()> {
+    /// Place an ion into a cif file
+    fn place_ion(&mut self, ion: Ion, coord_armstrong: Vector3<f32>) -> std::io::Result<()> {
         match ion {
             Ion::Singlet(name) => self.place(name, coord_armstrong)?,
             Ion::Cyanometalate {
@@ -114,6 +117,7 @@ impl<const S: usize> CifWriter<'_, S> {
         Ok(())
     }
 
+    /// Place a named atom into a cif file at the position in armstong
     fn place(&mut self, name: &'static str, pos_armstrong: Vector3<f32>) -> std::io::Result<()> {
         let rel_coords = self.armstrong_to_rel * pos_armstrong;
         writeln!(
@@ -123,7 +127,8 @@ impl<const S: usize> CifWriter<'_, S> {
         )
     }
 
-    pub fn index_to_armstong(&self, i: isize, j: isize, k: isize) -> Vector3<f32> {
+    /// convert an index to coordinates in armstong
+    fn index_to_armstong(&self, i: isize, j: isize, k: isize) -> Vector3<f32> {
         [
             i as f32 / S as f32 * self.cell_a,
             j as f32 / S as f32 * self.cell_b,
@@ -133,6 +138,7 @@ impl<const S: usize> CifWriter<'_, S> {
     }
 }
 
+/// A type for Ions
 #[derive(Clone, Copy)]
 pub enum Ion {
     Singlet(&'static str),
@@ -143,6 +149,10 @@ pub enum Ion {
     },
 }
 
+/// Create a cif file from the grid.
+/// Note that $\alpha = \beta = \gamma = 90 \degrees$
+/// The naming provides a translation from i8 to an ion
+/// If the ion is None it is just ignored.
 pub fn write_cif<const S: usize>(
     grid: &Array3d<i8, S, S, S>,
     cell_a: f32,

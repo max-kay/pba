@@ -9,11 +9,8 @@ fn main() {
         for _ in 0..SIZE * SIZE * SIZE {
             model.monte_carlo_step(1.0 / 100.0)
         }
-        // model.print_counters();
-        model.print_hamiltonian()
     }
     println!("finished");
-    model.print_hamiltonian();
     model.print_neighbours();
     println!("");
     println!("new hamiltonian {}", model.calc_hamiltonian());
