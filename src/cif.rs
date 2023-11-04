@@ -61,7 +61,6 @@ impl<const S: usize> CifWriter<'_, S> {
         )
     }
 
-    
     pub fn write_to_file(&mut self) -> std::io::Result<()> {
         writeln!(self.file, "{}", self.get_header())?;
         for i in 0..(S as isize) {
@@ -87,7 +86,7 @@ impl<const S: usize> CifWriter<'_, S> {
     pub fn place_ion(&mut self, ion: Ion, coord_armstrong: Vector3<f32>) -> std::io::Result<()> {
         match ion {
             Ion::Singlet(name) => self.place(name, coord_armstrong)?,
-            Ion::CyanoMetal {
+            Ion::Cyanometalate {
                 name,
                 c_offset,
                 n_offset,
@@ -137,7 +136,7 @@ impl<const S: usize> CifWriter<'_, S> {
 #[derive(Clone, Copy)]
 pub enum Ion {
     Singlet(&'static str),
-    CyanoMetal {
+    Cyanometalate {
         name: &'static str,
         c_offset: f32,
         n_offset: f32,
