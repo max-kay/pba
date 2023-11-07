@@ -6,21 +6,23 @@ use rayon::prelude::*;
 use pba::{CsvLogger, Model, StreamingStats};
 const J_2: f32 = 1.0;
 
-const SIZE: usize = 64;
+const SIZE: usize = 8;
 
-const EQ_EPOCHS: usize = 200;
-const EPOCH: usize = 300;
+const EQ_EPOCHS: usize = 500;
+const EPOCH: usize = 500;
 
-const J_STEPS: u32 = 40;
-const J_START: f32 = 5.0;
-const J_END: f32 = -1.0;
+const J_STEPS: u32 = 20;
+const J_START: f32 = 6.0;
+const J_END: f32 = -2.0;
 
-const TEMP_STEPS: u32 = 40;
+const TEMP_STEPS: u32 = 60;
 const LN_T_PRIME_0: f32 = 4.0;
-const LN_T_PRIME_END: f32 = 0.0;
+const LN_T_PRIME_END: f32 = -2.0;
 
 fn main() {
     let name = format!("{}", Utc::now().format("%Y-%m-%d_%H-%M"));
+    std::fs::create_dir(&format!("cif/{}", name)).unwrap();
+
     let temps: Vec<f32> = (0..TEMP_STEPS)
         .map(|i| {
             ((LN_T_PRIME_END - LN_T_PRIME_0) / (TEMP_STEPS - 1) as f32 * i as f32 + LN_T_PRIME_0)
@@ -36,7 +38,7 @@ fn main() {
     let (logger, handle) = CsvLogger::new(
         format!("csv/{}.csv", name),
         format!(
-            "energy and variance are give per cyanometalate site\n the system size was {}",
+            "energy and variance are give per cyanometalate site\nthe system size was {}",
             SIZE
         ),
         vec!["j_prime", "temp", "energy", "variance"],
@@ -70,7 +72,7 @@ fn main() {
                     ])
                     .expect("error while sending row to csv logger");
                 if let Result::Err(_) =
-                    model.write_to_cif(&format!("cif/{}_j_{}_t_{}.cif", name, j_prime, temp))
+                    model.write_to_cif(&format!("cif/{}/j_{}_t_{}.cif", name, j_prime, temp))
                 {
                     eprintln!("could not create cif for j: {}, t: {}", j_prime, temp)
                 }
