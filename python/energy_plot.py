@@ -1,10 +1,27 @@
+"""
+this file contains a script for plotting the results of the Monte Carlo simmulation
+"""
+from os import listdir
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-df = pd.read_csv("out.csv", header=1)
+files = listdir("csv")
 
-df.sort_values(["temp", "j_prime"], inplace=True)
+files.sort()
+
+for i, file in enumerate(files):
+    print(f"({i+1}) {file}")
+
+match input("choose file number (latest if empty or 0): "):
+    case "":
+        file = files[-1]
+    case num:
+        file = files[int(num) - 1]
+
+df = pd.read_csv(f"csv/{file}", header=2)
+
+df.sort_values(["j_prime", "temp"], inplace=True)
 width = len(df["j_prime"].unique())
 height = len(df["temp"].unique())
 
@@ -17,7 +34,7 @@ fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
 
 im1 = axs[0].imshow(
-    energies.reshape(width, height),
+    energies.reshape(width, height).T,
     cmap="viridis",
     extent=[
         df["j_prime"].min(),
@@ -35,7 +52,7 @@ fig.colorbar(im1, ax=axs[0], label="Energy")
 
 
 im2 = axs[1].imshow(
-    heat_capacity.reshape(width, height),
+    -heat_capacity.reshape(width, height).T,
     cmap="viridis",
     extent=[
         df["j_prime"].min(),
