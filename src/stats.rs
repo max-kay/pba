@@ -34,9 +34,3 @@ impl StreamingStats {
         self.v_k / self.count as f32
     }
 }
-
-mod test {
-    use super::*;
-
-    
-}
