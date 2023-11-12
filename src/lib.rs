@@ -3,7 +3,9 @@ use rand::rngs::StdRng;
 use rand_seeder::Seeder;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::io::Write;
 use std::path::Path;
+use std::str::FromStr;
 
 mod array3d;
 use array3d::Array3d;
@@ -15,7 +17,6 @@ mod logs;
 pub use logs::CsvLogger;
 
 type Index = (isize, isize, isize);
-
 
 const DIST_MN_MN: f32 = 10.0003;
 const CO_C: f32 = 1.89;
@@ -271,4 +272,68 @@ impl<const S: usize> Model<S> {
         ]);
         cif::write_cif(&self.grid, side, side, side, naming, path)
     }
+}
+
+impl<const S: usize> Model<S> {
+    /// This function saves the model to a .txt file.
+    /// note that the state of the rng is not preserved in this step
+    pub fn safe_to_txt(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+        let mut file = std::fs::File::create(path)?;
+        writeln!(file, "{} model size", S)?;
+        writeln!(file, "{} j_1", self.j_1)?;
+        writeln!(file, "{} j_2", self.j_2)?;
+        writeln!(file, "{} good moves", self.good_moves)?;
+        writeln!(file, "{} bad moves", self.bad_moves)?;
+        writeln!(file, "{} rejected moves", self.rejected_moves)?;
+        writeln!(file, "{}", self.grid.as_string())?;
+        file.flush()?;
+        Ok(())
+    }
+
+    /// This function reads a .txt file and recreates the model
+    /// note that the generic parameter S needs to be given correctly
+    /// and that the state of the rng is not preserved
+    pub fn from_txt(path: impl AsRef<Path>) -> Result<Self, Box<dyn std::error::Error>> {
+        let string = std::fs::read_to_string(path)?;
+        let mut split = string.split("\n");
+        assert_eq!(S, parse_next(&mut split)?, "incorrect generic argument s");
+        let mut out = Self {
+            j_1: parse_next(&mut split)?,
+            j_2: parse_next(&mut split)?,
+            good_moves: parse_next(&mut split)?,
+            bad_moves: parse_next(&mut split)?,
+            rejected_moves: parse_next(&mut split)?,
+            grid: Array3d::<i8, S, S, S>::from_string(split.next().ok_or(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "not enough lines",
+            ))?)?,
+            rng: SeedableRng::from_entropy(),
+            nearest_neighbours: 0,
+            next_nearest_neighbours: 0,
+        };
+        out.calc_hamiltonian();
+        Ok(out)
+    }
+}
+/// Takes the next value of the iterator splits it by " " and parses the first item.
+fn parse_next<'a, T>(
+    iter: &mut impl Iterator<Item = &'a str>,
+) -> Result<T, Box<dyn std::error::Error>>
+where
+    T: std::str::FromStr,
+    <T as FromStr>::Err: 'static + std::error::Error,
+{
+    Ok(iter
+        .next()
+        .ok_or(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "the file contained invalid data",
+        ))?
+        .split_whitespace()
+        .next()
+        .ok_or(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "the file contained invalid data",
+        ))?
+        .parse::<T>()?)
 }

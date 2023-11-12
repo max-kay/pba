@@ -81,9 +81,32 @@ impl<T, const W: usize, const H: usize, const D: usize> Array3d<T, W, H, D> {
         unsafe { std::slice::from_raw_parts(self.grid.as_ptr().cast(), W * H * D) }
     }
 
-    // pub fn as_flat_slice_mut(&mut self) -> &mut [T] {
-    //     // Safety: the memory layout of [[T; N]; N] is the same as [T]
-    //     // TODO zero sized types
-    //     unsafe { std::slice::from_raw_parts_mut(self.grid.as_mut_ptr().cast(), W * H * D) }
-    // }
+    pub fn as_flat_slice_mut(&mut self) -> &mut [T] {
+        // Safety: the memory layout of [[T; N]; N] is the same as [T]
+        // TODO zero sized types
+        unsafe { std::slice::from_raw_parts_mut(self.grid.as_mut_ptr().cast(), W * H * D) }
+    }
+}
+
+impl<const W: usize, const H: usize, const D: usize> Array3d<i8, W, H, D> {
+    pub fn as_string(&self) -> String {
+        let mut out = String::new();
+        for val in self.as_flat_slice() {
+            out.push_str(&format!("{} ", val))
+        }
+        out.pop();
+        out
+    }
+
+    pub fn from_string(string: &str) -> Result<Self, std::num::ParseIntError> {
+        let split = string.split_whitespace();
+        let mut grid = Self::new();
+        let mut counter = 0;
+        for (v, s) in grid.as_flat_slice_mut().iter_mut().zip(split.into_iter()) {
+            *v = s.parse()?;
+            counter += 1;
+        }
+        assert_eq!(W * H * D, counter);
+        Ok(grid)
+    }
 }
