@@ -9,8 +9,8 @@ use std::str::FromStr;
 
 mod array3d;
 use array3d::Array3d;
-mod cif;
-pub use cif::Ion;
+mod mmcif;
+pub use mmcif::Ion;
 mod stats;
 pub use stats::StreamingStats;
 mod logs;
@@ -270,7 +270,7 @@ impl<const S: usize> Model<S> {
             ),
             (-1, None),
         ]);
-        cif::write_cif(&self.grid, side, side, side, naming, path)
+        mmcif::write_mmcif(&self.grid, side, side, side, naming, path)
     }
 }
 
