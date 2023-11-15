@@ -14,18 +14,6 @@ where
             grid: Box::new([[[T::default(); W]; H]; D]),
         }
     }
-
-    pub fn filled(mut func: impl FnMut((usize, usize, usize)) -> T) -> Self {
-        let mut grid = Box::new([[[T::default(); W]; H]; D]);
-        for i in 0..D {
-            for j in 0..H {
-                for k in 0..W {
-                    grid[k][j][i] = func((i, j, k))
-                }
-            }
-        }
-        Self { grid }
-    }
 }
 
 impl<T, const W: usize, const H: usize, const D: usize> Index<(isize, isize, isize)>

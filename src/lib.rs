@@ -49,25 +49,36 @@ pub struct Model<const S: usize> {
 
 impl<const S: usize> Model<S> {
     /// Constructor for the Model
-    pub fn new(j_1: f32, j_2: f32, fill_frac: f64, seed: Option<&'static str>) -> Self {
+    pub fn new(j_1: f32, j_2: f32, fill_frac: f32, seed: Option<&'static str>) -> Self {
         assert!(S % 2 == 0, "grid need to have side length 2*N");
         let mut rng = if let Some(seed) = seed {
             Seeder::from(seed).make_rng()
         } else {
             StdRng::from_entropy()
         };
+        let mut shuffle = Vec::<i8>::new();
+
+        let metalates = (fill_frac * (S * S * S / 2) as f32).floor() as usize;
+
+        for _ in 0..metalates {
+            shuffle.push(1)
+        }
+        for _ in metalates..S * S * S / 2 {
+            shuffle.push(-1)
+        }
+        shuffle.shuffle(&mut rng);
+
+        let mut grid = Array3d::new();
+
+        grid.as_flat_slice_mut()
+            .iter_mut()
+            .skip(1)
+            .step_by(2)
+            .zip(shuffle.iter())
+            .for_each(|(g_i, s_i)| *g_i = *s_i);
+
         let mut out = Self {
-            grid: Array3d::filled(|(x, y, z)| {
-                if (x + y + z) % 2 == 0 {
-                    0
-                } else {
-                    if rng.gen_bool(fill_frac) {
-                        1
-                    } else {
-                        -1
-                    }
-                }
-            }),
+            grid,
             j_1,
             nearest_neighbours: 0,
             j_2,
@@ -77,7 +88,7 @@ impl<const S: usize> Model<S> {
             rejected_moves: 0,
             rng,
         };
-        out.calc_hamiltonian();
+        out.calc_sums();
         assert!(
             out.fill_frac() != 0.0,
             "The fill fraction of the start was zero! Rerun with different seed!"
@@ -85,8 +96,8 @@ impl<const S: usize> Model<S> {
         out
     }
 
-    /// Updates the nearest neighbour and next nearest neighbour sums and returns the hamiltonian
-    pub fn calc_hamiltonian(&mut self) -> f32 {
+    /// Updates the nearest neighbour and next nearest neighbour sums
+    pub fn calc_sums(&mut self) {
         self.nearest_neighbours = 0;
         self.next_nearest_neighbours = 0;
         for i in 0..(S as isize) {
@@ -98,7 +109,6 @@ impl<const S: usize> Model<S> {
                 }
             }
         }
-        self.get_hamiltonian()
     }
 }
 
@@ -183,6 +193,7 @@ impl<const S: usize> Model<S> {
         }
         (idx_1, idx_2)
     }
+
     /// Performs a Monte Carlo step.
     /// Note that $\beta = \frac{1}{T}$
     pub fn monte_carlo_step(&mut self, beta: f32) {
@@ -311,10 +322,11 @@ impl<const S: usize> Model<S> {
             nearest_neighbours: 0,
             next_nearest_neighbours: 0,
         };
-        out.calc_hamiltonian();
+        out.calc_sums();
         Ok(out)
     }
 }
+
 /// Takes the next value of the iterator splits it by " " and parses the first item.
 fn parse_next<'a, T>(
     iter: &mut impl Iterator<Item = &'a str>,
