@@ -1,3 +1,4 @@
+// TODO check implemetation and source mentioned in stackexchange
 pub struct StreamingStats {
     count: u32,
     m_k: f32,
