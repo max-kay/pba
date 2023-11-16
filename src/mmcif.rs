@@ -1,4 +1,4 @@
-use nalgebra::{Matrix3, Vector3};
+use nalgebra::Vector3;
 use std::{collections::HashMap, fs::File, io::Write, path::Path, usize};
 
 use crate::array3d::Array3d;
@@ -8,7 +8,6 @@ struct MmCifWriter<'a, const S: usize> {
     cell_a: f32,
     cell_b: f32,
     cell_c: f32,
-    armstrong_to_rel: Matrix3<f32>,
     naming: HashMap<i8, Option<Ion>>,
     grid: &'a Array3d<i8, S, S, S>,
     file: File,
@@ -29,9 +28,6 @@ impl<'a, const S: usize> MmCifWriter<'a, S> {
             cell_a,
             cell_b,
             cell_c,
-            armstrong_to_rel: Matrix3::from_diagonal(
-                &[1.0 / cell_a, 1.0 / cell_b, 1.0 / cell_c].into(),
-            ),
             naming,
             grid,
             file: File::create(path)?,
@@ -173,7 +169,8 @@ _atom_site.pdbx_PDB_model_num"
     /// Place a named atom into a mmcif file at the position in armstong
     fn place(&mut self, name: &'static str, pos_armstrong: Vector3<f32>) -> std::io::Result<()> {
         self.counter += 1;
-        let rel_coords = self.armstrong_to_rel * pos_armstrong;
+        // let rel_coords = self.armstrong_to_rel * pos_armstrong;
+        let rel_coords = pos_armstrong;
         writeln!(
             self.file,
             "ATOM {} {} {} . '' . . . ? {} {} {} 1 0 ? ? A 1",
