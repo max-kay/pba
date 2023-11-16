@@ -56,10 +56,10 @@ impl<const S: usize> Model<S> {
         } else {
             StdRng::from_entropy()
         };
-        let mut shuffle = Vec::<i8>::new();
 
         let metalates = (fill_frac * (S * S * S / 2) as f32).floor() as usize;
 
+        let mut shuffle = Vec::<i8>::new();
         for _ in 0..metalates {
             shuffle.push(1)
         }
@@ -67,15 +67,18 @@ impl<const S: usize> Model<S> {
             shuffle.push(-1)
         }
         shuffle.shuffle(&mut rng);
+        let mut shuffle = shuffle.into_iter();
 
-        let mut grid = Array3d::new();
+        let mut grid = Array3d::<i8, S, S, S>::new();
 
-        grid.as_flat_slice_mut()
-            .iter_mut()
-            .skip(1)
-            .step_by(2)
-            .zip(shuffle.iter())
-            .for_each(|(g_i, s_i)| *g_i = *s_i);
+        for i in 0..(S as isize) {
+            for j in 0..(S as isize) {
+                for k in 0..((S / 2) as isize) {
+                    let idx = (i, j, 2 * k + i % 2 + j % 2 + 1);
+                    grid[idx] = shuffle.next().expect("should not fail because of the way the indexes work and S is divisible by 2");
+                }
+            }
+        }
 
         let mut out = Self {
             grid,
