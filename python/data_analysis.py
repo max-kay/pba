@@ -6,6 +6,7 @@ import os
 import subprocess
 import numpy as np
 import h5py
+from matplotlib import pyplot as plt
 
 
 class Diffraction:
@@ -73,16 +74,24 @@ class Diffraction:
         """
         return np.isnan(self.intensities).all()
 
+    def get_l_section(self, l_value) -> np.ndarray:
+        """
+        get a section of the diffraction pattern at the specified l_value
+        """
+        int_l_value = int(round(l_value * self.super_cells[2]))
+        _int_h_max, _int_k_max, int_l_max = np.round(
+            self.frac_hkl_max * self.super_cells
+        ).astype(np.int32)
+        return self.intensities[:, :, int_l_max + int_l_value]
+
     def plot_l_section(self, fig, ax, l_value):
         """
         plots an l-section if the diffraction data
         """
-        int_l_value = int(round(l_value * self.super_cells[2]))
-        int_h_max, int_k_max, int_l_max = np.round(
+        section = self.get_l_section(l_value)
+        int_h_max, int_k_max, _int_l_max = np.round(
             self.frac_hkl_max * self.super_cells
         ).astype(np.int32)
-        section = self.intensities[:, :, int_l_max + int_l_value]
-
         im = ax.imshow(
             section,
             extent=[
@@ -95,6 +104,19 @@ class Diffraction:
         )
         fig.colorbar(im)
         fig.tight_layout()
+
+    def save_l_section(self, l_value: float, path: str):
+        """
+        save a section of the specified l_value
+        """
+        section = self.get_l_section(l_value)
+        plt.imsave(
+            path,
+            section,
+            cmap="gray_r",
+            vmin=np.nanmin(section),
+            vmax=np.nanmax(section),
+        )
 
     def save_yell(self, path):
         """
@@ -124,7 +146,7 @@ class Diffraction:
         return cls(frac_hkl_max, intensities, super_cells)
 
     @classmethod
-    def generate_from_mmcif(cls, path: str, supercells):
+    def generate_from_mmcif(cls, path: str, supercells: np.ndarray):
         """
         runs gemmi on the file provided and parses the input
         """
@@ -169,11 +191,13 @@ def get_sf_string(mmcif_file: str) -> str:
     runs gemmi sfcalc on the provided file and returns the output as a string
     """
     try:
+        print("running gemmi sfcalc on", mmcif_file)
         result = subprocess.run(
             ["gemmi", "sfcalc", "--dmin=1", mmcif_file],
             stdout=subprocess.PIPE,
             check=True,
         )
+        print("ran successfully")
         return result.stdout.decode()
     except subprocess.CalledProcessError:
         print(f"failed to run gemmi on {mmcif_file}")
@@ -185,8 +209,8 @@ def get_runs() -> list[str]:
     returns a list of the names of the runs
     """
     names = []
-    for name in os.listdir("mmcif"):
-        if os.path.isdir(f"mmcif/{name}"):
+    for name in os.listdir("out/mmcif"):
+        if os.path.isdir(f"out/mmcif/{name}"):
             names.append(name)
     return names
 
@@ -195,37 +219,52 @@ def get_file_names(run: str) -> list[str]:
     """
     returns a list of the values used in the run
     """
-    names = os.listdir(f"mmcif/{run}")
+    names = os.listdir(f"out/mmcif/{run}")
     return list(map(lambda string: string.removesuffix(".mmcif"), names))
 
 
-def main():
-    from matplotlib import pyplot as plt
+def analyze_mmcif(run: str, name: str, supercells: str):
+    """
+    calculates all diffraction patterns of a run and saves them as .h5 files in the yell format
+    additionally saves the hk0 section as pngs
+    """
+    if not os.path.exists(f"out/h5/{run}/{name}.h5"):
+        diffraction = Diffraction.generate_from_mmcif(
+            f"out/mmcif/{run}/{name}.mmcif", supercells
+        )
+        diffraction.save_yell(f"out/h5/{run}/{name}.h5")
+        diffraction.save_l_section(0.0, f"out/hk0/{run}/{name}.png")
+    else:
+        print(f"{run} {name} is already analyzed")
 
-    run = get_runs()[0]
-    name = get_file_names(run)[10]
-    with open(f"csv/{run}.csv", mode="r", encoding="utf8") as file:
+
+def analyze_run(run: str):
+    """
+    calculates all diffraction patterns of a run and saves them as .h5 files in the yell format
+    additionally saves the hk0 section as pngs
+    """
+    with open(f"out/csv/{run}.csv", mode="r", encoding="utf8") as file:
         file.readline()
         supercells = int(file.readline().split(" ")[0])
-    diffraction = Diffraction.generate_from_mmcif(
-        f"mmcif/{run}/{name}.mmcif", np.array([supercells] * 3)
-    )
-    diffraction.save_yell("out.h5")
-    # while True:
-    #     l_value = float(input("plot l section\n"))
-    #     fig, ax = plt.subplots()
-    #     diffraction.plot_l_section(fig, ax, l_value)
-    #     plt.show()
+    supercells = np.array([supercells] * 3)
+    os.makedirs(f"out/h5/{run}", exist_ok=True)
+    os.makedirs(f"out/hk0/{run}", exist_ok=True)
+    names = get_file_names(run)
+    lenght = len(names)
+    for i, name in enumerate(names):
+        print()
+        print(f"file {i+1} of {lenght}")
+        analyze_mmcif(run, name, supercells)
+
+
+def test_analyze_mmcif():
+    """
+    test analyze_mmcif
+    """
+    run = "2023-11-16_15-21"
+    name = "j_0_t_0.3807861"
+    analyze_mmcif(run, name, np.array([4] * 3))
 
 
 if __name__ == "__main__":
-    main()
-    from matplotlib import pyplot as plt
-    # name = "test2"
-    # diffraction = Diffraction.add_from_files([f"{name}.sf"], np.array([1, 1, 1]))
-    # diffraction.save_yell(f"{name}.h5")
-    # while True:
-    #     l_value = float(input("plot l section\n"))
-    #     fig, ax = plt.subplots()
-    #     diffraction.plot_l_section(fig, ax, l_value)
-    #     plt.show()
+    analyze_run("2023-11-16_16-54")

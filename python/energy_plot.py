@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-files = listdir("csv")
+files = listdir("out/csv")
 
 files.sort()
 
@@ -19,7 +19,7 @@ match input("choose file number (latest if empty or 0): "):
     case num:
         file = files[int(num) - 1]
 
-df = pd.read_csv(f"csv/{file}", header=2)
+df = pd.read_csv(f"out/csv/{file}", header=3)
 
 df.sort_values(["j_prime", "temp"], inplace=True)
 width = len(df["j_prime"].unique())

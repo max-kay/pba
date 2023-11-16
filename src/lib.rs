@@ -57,13 +57,17 @@ impl<const S: usize> Model<S> {
             StdRng::from_entropy()
         };
 
+        let mut is_ok = false;
+
         let metalates = (fill_frac * (S * S * S / 2) as f32).floor() as usize;
 
         let mut shuffle = Vec::<i8>::new();
         for _ in 0..metalates {
+            is_ok = true;
             shuffle.push(1)
         }
         for _ in metalates..S * S * S / 2 {
+            is_ok = is_ok && true;
             shuffle.push(-1)
         }
         shuffle.shuffle(&mut rng);
@@ -92,10 +96,7 @@ impl<const S: usize> Model<S> {
             rng,
         };
         out.calc_sums();
-        assert!(
-            out.fill_frac() != 0.0,
-            "The fill fraction of the start was zero! Rerun with different seed!"
-        );
+        assert!(is_ok, "The fill fraction of the start was zero or one!");
         out
     }
 

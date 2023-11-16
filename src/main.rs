@@ -6,23 +6,24 @@ use rayon::prelude::*;
 use pba::{CsvLogger, Model, StreamingStats};
 const J_2: f32 = 1.0;
 
-const SIZE: usize = 16;
+const SIZE: usize = 32;
+const FILL_FRAC: f32 = 2.0 / 3.0;
 
 const EQ_EPOCHS: usize = 500;
 const EPOCH: usize = 500;
 
-const J_STEPS: u32 = 7;
+const J_STEPS: u32 = 16;
 const J_START: f32 = 6.0;
 const J_END: f32 = 0.0;
 
-const TEMP_STEPS: u32 = 30;
+const TEMP_STEPS: u32 = 40;
 const LN_T_PRIME_0: f32 = 4.0;
 const LN_T_PRIME_END: f32 = -2.0;
 
 fn main() {
     let name = format!("{}", Utc::now().format("%Y-%m-%d_%H-%M"));
-    std::fs::create_dir(&format!("mmcif/{}", name)).unwrap();
-    std::fs::create_dir(&format!("models/{}", name)).unwrap();
+    std::fs::create_dir(&format!("out/mmcif/{}", name)).unwrap();
+    std::fs::create_dir(&format!("out/models/{}", name)).unwrap();
 
     let temps: Vec<f32> = (0..TEMP_STEPS)
         .map(|i| {
@@ -37,10 +38,11 @@ fn main() {
         .collect();
 
     let (logger, handle) = CsvLogger::new(
-        format!("csv/{}.csv", name),
+        format!("out/csv/{}.csv", name),
         format!(
-            "energy and variance are give per cyanometalate site\n{} supercells in every direction",
-            SIZE/2
+            "energy and variance are give per cyanometalate site\n{} supercells in every direction\n{} fill fraction",
+            SIZE/2,
+            (FILL_FRAC*(SIZE*SIZE*SIZE/2) as f32).floor() as usize as f32 / (SIZE*SIZE*SIZE/2) as f32
         ),
         vec!["j_prime", "temp", "energy", "variance"],
     );
@@ -49,7 +51,7 @@ fn main() {
     let _: Vec<_> = j_primes
         .par_iter()
         .map_with(logger, |logger, j_prime| {
-            let mut model = Model::<SIZE>::new(j_prime * J_2, J_2, 2.0 / 3.0, None);
+            let mut model = Model::<SIZE>::new(j_prime * J_2, J_2, FILL_FRAC, None);
             for temp in &temps {
                 for _ in 0..EQ_EPOCHS {
                     for _ in 0..SIZE * SIZE * SIZE {
@@ -72,16 +74,23 @@ fn main() {
                         stats.variance() / (SIZE * SIZE * SIZE / 2) as f32,
                     ])
                     .expect("error while sending row to csv logger");
-                if let Result::Err(err) =
-                    model.write_to_cif(&format!("mmcif/{}/j_{}_t_{}.mmcif", name, j_prime, temp))
-                {
-                    eprintln!("{}\ncould not create mmcif for j: {}, t: {}", err, j_prime, temp)
+                if let Result::Err(err) = model.write_to_cif(&format!(
+                    "out/mmcif/{}/j_{}_t_{}.mmcif",
+                    name, j_prime, temp
+                )) {
+                    eprintln!(
+                        "{}\ncould not create mmcif for j: {}, t: {}",
+                        err, j_prime, temp
+                    )
                 }
 
                 if let Result::Err(err) =
-                    model.safe_to_txt(&format!("models/{}/j_{}_t_{}.txt", name, j_prime, temp))
+                    model.safe_to_txt(&format!("out/models/{}/j_{}_t_{}.txt", name, j_prime, temp))
                 {
-                    eprintln!("{}\ncould not create txt for j: {}, t: {}", err, j_prime, temp)
+                    eprintln!(
+                        "{}\ncould not create txt for j: {}, t: {}",
+                        err, j_prime, temp
+                    )
                 }
             }
         })

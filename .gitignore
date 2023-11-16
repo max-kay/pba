@@ -3,6 +3,4 @@
 /.vscode
 **/.DS_Store
 
-/csv
-/models
-/mmcif
+/out
