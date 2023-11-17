@@ -4,6 +4,7 @@ This module contains function to read and work with cif files gemmi outputs and 
 import re
 import os
 import subprocess
+import multiprocessing
 import numpy as np
 import h5py
 from matplotlib import pyplot as plt
@@ -226,14 +227,12 @@ def get_file_names(run: str) -> list[str]:
 def analyze_mmcif(run: str, name: str, supercells: str):
     """
     calculates all diffraction patterns of a run and saves them as .h5 files in the yell format
-    additionally saves the hk0 section as pngs
     """
     if not os.path.exists(f"out/h5/{run}/{name}.h5"):
         diffraction = Diffraction.generate_from_mmcif(
             f"out/mmcif/{run}/{name}.mmcif", supercells
         )
         diffraction.save_yell(f"out/h5/{run}/{name}.h5")
-        diffraction.save_l_section(0.0, f"out/hk0/{run}/{name}.png")
     else:
         print(f"{run} {name} is already analyzed")
 
@@ -266,5 +265,35 @@ def test_analyze_mmcif():
     analyze_mmcif(run, name, np.array([4] * 3))
 
 
+def analyze_mmcif_wrapper(args):
+    """
+    Wrapper function for analyze_mmcif to be used with multiprocessing
+    """
+    run, name, supercells = args
+    analyze_mmcif(run, name, supercells)
+
+
+def analyze_run_parallel(run: str):
+    """
+    Calculates all diffraction patterns of a run using multiprocessing
+    and saves them as .h5 files in the yell format
+    Additionally, saves the hk0 section as pngs
+    """
+    with open(f"out/csv/{run}.csv", mode="r", encoding="utf8") as file:
+        file.readline()
+        supercells = int(file.readline().split(" ")[0])
+    supercells = np.array([supercells] * 3)
+    os.makedirs(f"out/h5/{run}", exist_ok=True)
+    os.makedirs(f"out/hk0/{run}", exist_ok=True)
+    names = get_file_names(run)
+
+
+    num_processes = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(processes=num_processes)
+    args_list = [(run, name, supercells) for name in names]
+    pool.map(analyze_mmcif_wrapper, args_list)
+    pool.close()
+    pool.join()
+
 if __name__ == "__main__":
-    analyze_run("2023-11-16_16-54")
+    analyze_run_parallel("2023-11-16_17-01")
