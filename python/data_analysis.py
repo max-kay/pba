@@ -333,7 +333,11 @@ def make_map_from_yells(
     energy_values: int | None = None,
     temp_values: int | None = None,
 ):
-    temps, energies = get_sorted_energies_and_temps(run)
+    """
+    takes a the yell files from a run and creates a map of the sections of the diffraction patterns
+    at value from the origin
+    """
+    energies, temps = get_sorted_energies_and_temps(run)
 
     t_step = 1
     if temp_values:
@@ -377,7 +381,7 @@ def make_map_from_yells(
     )
 
 
-def get_sorted_energies_and_temps(run):
+def get_sorted_energies_and_temps(run: str) -> tuple[list[str], list[str]]:
     """
     returns the sorted temperatures and Js aviable for this run
     """
@@ -396,7 +400,7 @@ def get_sorted_energies_and_temps(run):
     f_energies.sort(key=lambda tup: tup[0])
     temps = [tup[1] for tup in f_temps]
     energies = [tup[1] for tup in f_energies]
-    return temps, energies
+    return energies, temps
 
 
 def shrink_to_fit_non_nan(array: np.ndarray) -> np.ndarray:
@@ -430,9 +434,41 @@ def find_biggest_non_nan_square(array: np.ndarray) -> np.ndarray:
     return array[offset : w - offset, offset : w - offset]
 
 
-# if __name__ == "__main__":
-#     # run = "2023-11-16_16-54"
-#     run = "2023-11-16_17-01"
-#     # analyze_run_parallel(run)
-#     for value in range(10):
-#         make_map_from_yells(run, value)
+def make_cooling_strip(run: str, j: str, l_value):
+    """
+    takes a run and a j values and creates a strip of sections of diffraction pattern from high to low temperatures
+    """
+    js, temps = get_sorted_energies_and_temps(run)
+    assert j in js
+    diffraction = Diffraction.open_yell(f"out/h5/{run}/j_{j}_t_{temps[0]}.h5")
+    h, w = find_biggest_non_nan_square(diffraction.get_l_section(l_value)).shape
+    del diffraction
+    assert w == h
+    img = np.empty((h, w * len(temps) // 2), dtype=np.float64)
+    img[:] = np.nan
+    for i, temp in enumerate(temps[::2]):
+        diffraction = Diffraction.open_yell(f"out/h5/{run}/j_{j}_t_{temp}.h5")
+        img[:, w * i : w * (i + 1)] = find_biggest_non_nan_square(
+            diffraction.get_l_section(l_value)
+        )
+        del diffraction
+    img = np.log(img)
+    plt.imsave(
+        f"out/hk{l_value}_{j}.png",
+        img,
+        cmap="gray",
+        origin="upper",
+        vmin=np.nanmin(img),
+        vmax=np.nanmax(img),
+    )
+
+
+if __name__ == "__main__":
+    # run = "2023-11-16_16-54"
+    run = "2023-11-16_17-01"
+    # analyze_run_parallel(run)
+    # js, _ = get_sorted_energies_and_temps(run)
+    # for j in js:
+    #     make_cooling_strip(run, j, 2)
+    for value in range(10):
+        make_map_from_yells(run, value, 5, 7)

@@ -13,7 +13,7 @@ files.sort()
 for i, file in enumerate(files):
     print(f"({i+1}) {file}")
 
-match input("choose file number (latest if empty or 0): "):
+match input("choose file number (latest if empty): "):
     case "":
         file = files[-1]
     case num:
@@ -48,7 +48,11 @@ im1 = axs[0].imshow(
 axs[0].set_xlabel("J'")
 axs[0].set_ylabel("ln(T')")
 axs[0].set_title("Energy")
-fig.colorbar(im1, ax=axs[0], label="Energy")
+fig.colorbar(
+    im1,
+    ax=axs[0],
+    label="Energy",
+)
 
 
 im2 = axs[1].imshow(
@@ -66,7 +70,12 @@ im2 = axs[1].imshow(
 axs[1].set_xlabel("J'")
 axs[1].set_ylabel("ln(T')")
 axs[1].set_title("Heat Capacity")
-fig.colorbar(im2, ax=axs[1], label="Heat Capacity")
+fig.colorbar(
+    im2,
+    ax=axs[1],
+    label="Heat Capacity",
+)
 
 plt.tight_layout()
-plt.show()
+plt.savefig(f"figs/{file.removesuffix('.csv')}.svg")
+# plt.show()
