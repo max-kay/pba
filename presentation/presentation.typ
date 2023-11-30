@@ -44,9 +44,7 @@
     #only(3)[
       
       #v(0.8fr)
-      #ce("Co^III")
-      #v(1fr)
-      #ce("CN^-")
+      #ce("Co^III + 6CN^- ")
       #v(1fr)
       #ce("[Co^III (CN)_6]^-3")
       #v(1fr)
