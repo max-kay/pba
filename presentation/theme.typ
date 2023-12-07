@@ -60,3 +60,14 @@
   )
   logic.polylux-slide(body)
 }
+
+#let two_col_slide(title, col1, col2) = {
+  slide(
+    [
+      #title
+      #columns(2,
+      [#col1 #colbreak() #col2]
+      )
+    ]
+  )
+}
