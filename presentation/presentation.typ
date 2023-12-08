@@ -35,7 +35,7 @@
 )
 
 #title-slide[
-  = Vacancy structure in Prussian blue analgues
+  = Vacancy structure in Prussian blue analogues
   #image("../figs/Mn[Co].png", height: 60%)
   Max Krummenacher
 ]
@@ -212,7 +212,17 @@
 
 ]
 #slide[
-#align(center)[== Thank you for your attention]
-
-  #align(center + horizon, image("../figs/Mn[Co].png", height: 70%))
+  #align(center)[== Thank you for your attention!]
+  #grid(columns: (1fr, 1fr))[
+    #align(center , image("../figs/Mn[Co].png", height: 70%))
+  ][
+    #align(center + horizon)[
+      under supervision of\
+      #v(30pt)
+      Arkadiy Simonov\
+      #link("mailto:arkadiy.simonov@mat.ethz.ch")\
+      #v(10pt)
+      Disordered Materials\
+    ]
+  ]
 ]
