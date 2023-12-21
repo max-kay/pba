@@ -1,5 +1,5 @@
 """
-This module contains function to read and work with cif files gemmi outputs and the yell format
+This module contains function to read and work with mmcif files gemmi outputs and the yell format
 """
 import re
 import os
@@ -25,32 +25,6 @@ class Diffraction:
         self.intensities = intensities
         self.super_cells = super_cells
 
-    @classmethod
-    def add_from_files(cls, paths: list[str], supercells: np.ndarray):
-        """
-        reads the list of sf files provided and adds the values
-        failes if the (hkl) have different ranges
-        """
-        first_int_hkl, summed_intensities = read_sf_file(paths[0])
-        for path in paths[1:]:
-            int_hkl, intensities = read_sf_file(path)
-            assert (first_int_hkl == int_hkl).all()
-            summed_intensities += intensities
-
-        int_hkl_max, intensities = Diffraction.bring_into_shape(
-            first_int_hkl, summed_intensities
-        )
-        return cls(int_hkl_max / supercells, intensities, supercells)
-
-    @classmethod
-    def read_sf(cls, path: str, supercells: np.ndarray):
-        """
-        reads an .sf file
-        """
-        int_hkl, intensities = read_sf_file(path)
-        int_hkl_max, intensities = Diffraction.bring_into_shape(int_hkl, intensities)
-        return cls(int_hkl_max / supercells, intensities, supercells)
-
     @staticmethod
     def bring_into_shape(
         integer_hkls: np.ndarray, intensities: np.ndarray
@@ -69,6 +43,32 @@ class Diffraction:
             new_intensities[int_h_max - h, int_k_max - k, int_l_max - l] = intensitiy
         return np.array([int_h_max, int_k_max, int_l_max]), new_intensities
 
+    @classmethod
+    def read_sf(cls, path: str, supercells: np.ndarray):
+        """
+        reads an .sf file
+        """
+        int_hkl, intensities = read_sf_file(path)
+        int_hkl_max, intensities = Diffraction.bring_into_shape(int_hkl, intensities)
+        return cls(int_hkl_max / supercells, intensities, supercells)
+
+    @classmethod
+    def add_from_files(cls, paths: list[str], supercells: np.ndarray):
+        """
+        reads the list of sf files provided and adds the values
+        failes if the (hkl) have different ranges
+        """
+        first_int_hkl, summed_intensities = read_sf_file(paths[0])
+        for path in paths[1:]:
+            int_hkl, intensities = read_sf_file(path)
+            assert (first_int_hkl == int_hkl).all()
+            summed_intensities += intensities
+
+        int_hkl_max, intensities = Diffraction.bring_into_shape(
+            first_int_hkl, summed_intensities
+        )
+        return cls(int_hkl_max / supercells, intensities, supercells)
+
     def has_nan(self) -> bool:
         """
         checks if the diffraction data has nan
@@ -81,49 +81,45 @@ class Diffraction:
         """
         # TODO should I apply mirror and rotational symmetries?
         # this pattern is inversion symmetric. Can I use this?
-        sum = self.get_h_section(value)
-        sum += self.get_h_section(-value)
-        sum += self.get_k_section(value)
-        sum += self.get_k_section(-value)
-        sum += self.get_l_section(value)
-        sum += self.get_l_section(-value)
-        return sum / 6
+        img = self.get_section(value, "h")
+        img += self.get_section(-value, "h")
+        img += self.get_section(value, "k")
+        img += self.get_section(-value, "k")
+        img += self.get_section(value, "l")
+        img += self.get_section(-value, "l")
+        return img / 6
 
-    def get_h_section(self, h_value) -> np.ndarray:
+    def get_section(self, value: float, direction: int | str) -> np.ndarray:
         """
         get a section of the diffraction pattern at the specified h_value
         """
-        int_h_value = int(round(h_value * self.super_cells[0]))
-        int_h_max, _int_k_max, _int_l_max = np.round(
-            self.frac_hkl_max * self.super_cells
-        ).astype(np.int32)
-        return self.intensities[int_h_max + int_h_value, :, :]
+        match direction:
+            case "h":
+                direction = 0
+            case "k":
+                direction = 1
+            case "l":
+                direction = 2
+        int_value = int(round(value * self.super_cells[direction]))
+        int_max = np.round(self.frac_hkl_max * self.super_cells).astype(np.int32)[
+            direction
+        ]
+        index = int_max + int_value
+        match direction:
+            case 0:
+                return self.intensities[index, :, :]
+            case 1:
+                return self.intensities[:, index, :]
+            case 2:
+                return self.intensities[:, :, index]
+            case _:
+                raise ValueError("direction should be in {0, 1, 2} or {h, k, l}")
 
-    def get_k_section(self, k_value) -> np.ndarray:
-        """
-        get a section of the diffraction pattern at the specified l_value
-        """
-        int_k_value = int(round(k_value * self.super_cells[1]))
-        _int_h_max, int_k_max, _int_l_max = np.round(
-            self.frac_hkl_max * self.super_cells
-        ).astype(np.int32)
-        return self.intensities[:, int_k_max + int_k_value, :]
-
-    def get_l_section(self, l_value) -> np.ndarray:
-        """
-        get a section of the diffraction pattern at the specified l_value
-        """
-        int_l_value = int(round(l_value * self.super_cells[2]))
-        _int_h_max, _int_k_max, int_l_max = np.round(
-            self.frac_hkl_max * self.super_cells
-        ).astype(np.int32)
-        return self.intensities[:, :, int_l_max + int_l_value]
-
-    def plot_l_section(self, fig, ax, l_value):
+    def plot_l_section(self, fig, ax, value: float):
         """
         plots an l-section if the diffraction data
         """
-        section = self.get_l_section(l_value)
+        section = self.get_section(value, "l")
         int_h_max, int_k_max, _int_l_max = np.round(
             self.frac_hkl_max * self.super_cells
         ).astype(np.int32)
@@ -144,7 +140,7 @@ class Diffraction:
         """
         save a section of the specified l_value
         """
-        section = self.get_l_section(l_value)
+        section = self.get_section(l_value, "l")
         plt.imsave(
             path,
             section,
@@ -169,7 +165,7 @@ class Diffraction:
         output.close()
 
     @classmethod
-    def open_yell(cls, path):
+    def read_yell(cls, path):
         """
         reads the data from a .h5 file using the Yell format
         """
@@ -288,15 +284,6 @@ def analyze_run(run: str):
         analyze_mmcif(run, name, supercells)
 
 
-def test_analyze_mmcif():
-    """
-    test analyze_mmcif
-    """
-    run = "2023-11-16_15-21"
-    name = "j_0_t_0.3807861"
-    analyze_mmcif(run, name, np.array([4] * 3))
-
-
 def analyze_mmcif_wrapper(args):
     """
     Wrapper function for analyze_mmcif to be used with multiprocessing
@@ -349,7 +336,7 @@ def make_map_from_yells(
         energy_step = len(energies) // energy_values
     energies = energies[::energy_step]
 
-    diffraction = Diffraction.open_yell(
+    diffraction = Diffraction.read_yell(
         f"out/h5/{run}/j_{energies[-1]}_t_{temps[-1]}.h5"
     )
     w, h = find_biggest_non_nan_square(diffraction.get_averaged_section(value)).shape
@@ -361,20 +348,28 @@ def make_map_from_yells(
     for x, j in enumerate(energies):
         for y, temp in enumerate(temps):
             try:
-                diffraction = Diffraction.open_yell(f"out/h5/{run}/j_{j}_t_{temp}.h5")
+                diffraction = Diffraction.read_yell(f"out/h5/{run}/j_{j}_t_{temp}.h5")
+                section = np.log(
+                    find_biggest_non_nan_square(diffraction.get_averaged_section(value))
+                )
+                # vals = np.unique(section)
+                # vals.sort()
+                # section = vals.searchsorted(section)
+                # section = section.astype(np.float64)
+                # section /= np.max(section)
                 img[
                     y * h : (y + 1) * h,
                     x * w : (x + 1) * w,
-                ] = find_biggest_non_nan_square(diffraction.get_averaged_section(value))
+                ] = section
                 del diffraction
             except FileNotFoundError:
                 pass
     os.makedirs(f"out/maps/{run}", exist_ok=True)
-    img = np.log(img)
+
     plt.imsave(
         f"out/maps/{run}/hk{value}.png",
         img,
-        cmap="gray",
+        cmap="gray_r",
         origin="upper",
         vmin=np.nanmin(img),
         vmax=np.nanmax(img),
@@ -394,9 +389,9 @@ def get_sorted_energies_and_temps(run: str) -> tuple[list[str], list[str]]:
         if j not in energies:
             energies.append(j)
 
-    f_temps = list(zip([float(temp) for temp in temps], temps))
-    f_temps.sort(key=lambda tup: tup[1], reverse=True)
-    f_energies = list(zip([float(j) for j in energies], energies))
+    f_temps = [(float(temp), temp) for temp in temps]
+    f_temps.sort(key=lambda tup: tup[0], reverse=True)
+    f_energies = [(float(j), j) for j in energies]
     f_energies.sort(key=lambda tup: tup[0])
     temps = [tup[1] for tup in f_temps]
     energies = [tup[1] for tup in f_energies]
@@ -434,22 +429,36 @@ def find_biggest_non_nan_square(array: np.ndarray) -> np.ndarray:
     return array[offset : w - offset, offset : w - offset]
 
 
+def clamp_array(arr, min_percentile, max_percentile):
+    # Calculate the new minimum and maximum values based on percentiles
+    mask = ~np.isnan(arr)
+    new_min = np.percentile(arr[mask], min_percentile)
+    new_max = np.percentile(arr[mask], 100 - max_percentile)
+
+    # Replace values below new_min with new_min and values above new_max with new_max
+    arr[np.bitwise_and(mask, arr < new_min)] = new_min
+    arr[np.bitwise_and(mask, arr > new_max)] = new_max
+
+    return arr
+
+
 def make_cooling_strip(run: str, j: str, l_value):
     """
-    takes a run and a j values and creates a strip of sections of diffraction pattern from high to low temperatures
+    takes a run and a j values and creates a strip of sections of diffraction pattern
+    from high to low temperatures
     """
     js, temps = get_sorted_energies_and_temps(run)
     assert j in js
-    diffraction = Diffraction.open_yell(f"out/h5/{run}/j_{j}_t_{temps[0]}.h5")
-    h, w = find_biggest_non_nan_square(diffraction.get_l_section(l_value)).shape
+    diffraction = Diffraction.read_yell(f"out/h5/{run}/j_{j}_t_{temps[0]}.h5")
+    h, w = find_biggest_non_nan_square(diffraction.get_section(l_value, "l")).shape
     del diffraction
     assert w == h
     img = np.empty((h, w * len(temps) // 2), dtype=np.float64)
     img[:] = np.nan
     for i, temp in enumerate(temps[::2]):
-        diffraction = Diffraction.open_yell(f"out/h5/{run}/j_{j}_t_{temp}.h5")
+        diffraction = Diffraction.read_yell(f"out/h5/{run}/j_{j}_t_{temp}.h5")
         img[:, w * i : w * (i + 1)] = find_biggest_non_nan_square(
-            diffraction.get_l_section(l_value)
+            diffraction.get_section(l_value, "l")
         )
         del diffraction
     img = np.log(img)
@@ -463,12 +472,33 @@ def make_cooling_strip(run: str, j: str, l_value):
     )
 
 
-if __name__ == "__main__":
+def make_diffraction_figs():
+    run = "2023-11-16_17-01"
+    vals = [
+        "j_4.8_t_54.59815",
+        "j_4.8_t_0.13533528",
+        "j_0.4000001_t_0.13533528",
+        "j_0.4000001_t_54.59815",
+    ]
+    for val in vals:
+        diff = Diffraction.read_yell(f"out/h5/{run}/{val}.h5")
+        section = np.log(diff.get_averaged_section(0.0))
+        plt.imsave(
+            f"figs/{val}.png",
+            section,
+            cmap="gray_r",
+            origin="upper",
+            vmin=np.nanmin(section),
+            vmax=np.nanmax(section),
+        )
+
+
+def main():
     # run = "2023-11-16_16-54"
     run = "2023-11-16_17-01"
-    # analyze_run_parallel(run)
-    # js, _ = get_sorted_energies_and_temps(run)
-    # for j in js:
-    #     make_cooling_strip(run, j, 2)
     for value in range(10):
-        make_map_from_yells(run, value, 5, 7)
+        make_map_from_yells(run, value, 5, 5)
+
+
+if __name__ == "__main__":
+    main()
