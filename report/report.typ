@@ -50,13 +50,23 @@ These idealized structure of these compounds is the face centered cubic structur
   image("../figs/fcc.png", width: 50%),
   caption: [The structure of #text(M_COLOR, "M") \[#text(M_PRIME_COLOR, "M'") (#text(C_COLOR, "C")#text(N_COLOR, "N"))#sub("6")\]]
 )<fcc>
-However this exact structure is only achievable if the M ion has the same charge as the #ce("[M'(CN)_6]") ion in other words if charge balance allows $x=1$. If this condition is not met then some of the hexacyanometalate sites remain unoccupied. These vacancies may be filled with water or alkali metals depending on the composition and production method.
+However this exact structure is only achievable if the M ion has the same charge as the #ce("[M'(CN)_6]") ion in other words if charge balance allows $x=1$. An example of such a PBA is #ce("Pt[Pt(CN)_6]"). If this condition is not met then some of the hexacyanometalate sites remain unoccupied.
 
-Prussian blue itself has the composition #ce("Fe^III [Fe^II (CN)_6]_¾"). The fill fraction of ¾ allows the vacancies to be arranged in a periodic fashion in the cubic crystal structure. 
+Prussian blue itself has the composition #ce("Fe^III [Fe^II (CN)_6]_¾"). The fill fraction of ¾ allows the vacancies to be arranged in a periodic fashion in the cubic crystal structure. These vacancies aren't true vacancies in the strict sense. They don't remain empty. In the case of Prussian blue they are filled with water or depending on the production method might even be filled with alkali metal ions. This further complicates the condition of charge balance and is one of the reasons why the structure of Prussian blue has long been a mystery.
 
-In other PBAs like for example #ce("Mn^II [Co^III (CN)_6]_⅔") the fill fraction might not allow for a periodic arrangement of vacancies in a cubic crystal. This leads the crystal to be a frustrated system, as there is no singular state with lowest energy. Some additional structure is still expected to occur as depending on the elements in the structure chains of vacancies along #crystallo("<1 1 0>") or #crystallo("<1 0 0>") might be preferred.
 
-In this paper we explore the arrangement of vacancies of material with $x=⅔$ through a Monte Carlo simulation.
+#figure(
+  image("../figs/fefe_vac_w.png", width: 50%),
+  caption: [Arrangement of vacancies in Prussian blue @ray_tracer]
+)
+
+In other PBAs like for example #ce("Mn^II [Co^III (CN)_6]_⅔") the fill fraction might not allow for a periodic arrangement of vacancies in a cubic crystal. This leads the crystal to be a frustrated system, as there is no singular state with lowest energy.
+
+// write about vacancies avoiding each other.
+Vacancies in the crystal can be interpreted as a micropore. If two vacancy lie next to each other they connect to form a larger micropore. Thus the structure of vacancies in the crystal is important for many transport properties of the bulk material. Prussian blue has found application in medicine against Cs poisoning as Cs ions fit within the vacancies of the crystal where they remain immobilized.
+Other applications for the microporosity of PBAs include the storage of gases (eg. Hydrogen) and proton conduction.
+
+In this paper we explore the arrangement of vacancies of PBA with fill fraction $x=⅔$ through a Monte Carlo simulation using a simple nearest and next nearest neighbor interaction approximation for the hamiltonian.
 
 
 == Diffuse scattering
@@ -66,7 +76,7 @@ $ F_(h k l) = sum _j f_j exp(2 pi i mat(h, k, l;) vec(a_j, b_j, c_j)) $
 Where $F_(h k l)$ is the complex structure factor at position $mat(h, k, l;)$ in the reciprocal space, $f_j$ is the atomic form factor of the atom at position $vec(a_j, b_j, c_j)$. In a perfect infinitely large crystal the structure factor is zero everywhere except at integer valued $mat(h, k, l)$.
 Note that the Laue method measures the intensity $I = abs(F)^2$ such that the phase of $F_(h k l)$ is lost.
 
-The best use case for the Laue method is on a perfect single crystal. If the periodicity of the crystal is broken the peaks measured broaden and become more diffuse. However if there is some statistical pattern in the aperiodicity of the crystal (as in PBAs) the change of the shape of the peaks is characteristic of this statistical pattern.
+The best use case for the Laue method is on a perfect single crystal. If the periodicity of the crystal is broken the peaks measured broaden and become more diffuse. However if there is some statistical pattern in the aperiodicity of the crystal (as in PBAs) the change of the shape of the peaks is characteristic of this statistical pattern. @nature
 
 
 == Monte Carlo Simulation
@@ -77,16 +87,16 @@ $ 1 = sum_(sigma in Omega) (exp(-(cal(H) (sigma))/(k_b T)))/Z = 1/Z sum_(sigma i
 
 $ => Z = sum_(sigma in Omega) exp(- (cal(H)(sigma))/(k_b T)) $
 thus:
-$ rho (sigma) = exp(-(cal(H) (sigma))/(k_b T))/Z $
+$ rho (sigma) = exp(-(cal(H) (sigma))/(k_b T))/Z $<probability>
 
 We define macroscopic variables of state in terms of the expected value of their associated microscopic variables.
 For example for the internal energy we define:
-$ U = angle.l cal(H) angle.r= sum_(sigma in Omega) cal(H) (sigma) rho(sigma) $
+$ U = angle.l cal(H) angle.r = sum_(sigma in Omega) cal(H) (sigma) rho(sigma) $
 
-These sums often are mathematically complex and as such very hard to solve analytically. Though these sums are computable for systems with a small number of states to obtain statistically relevant results a large system needs to be chosen and the calculation of the expectance value becomes computationally expensive.
+Although each term of theses sums are simple set of states over which the sum is taken are often mathematically complex and as such very hard to solve analytically. Though these sums are computable for systems with a small number of states to obtain statistically relevant results a large system needs to be chosen and the calculation of the expectance value becomes computationally expensive.
 In the Monte Carlo simulation we find an approach to calculate the expected value of these variables without iterating through all states.
 
-The fundamental idea behind the technique is to generate a series of states $sigma _i$ drawn from the probability distribution defined by $rho (sigma)$. Variables of state can then be calculated as the average of the microscopic variable.
+The fundamental idea behind the technique is to generate a series of states $sigma_i$ drawn from the probability distribution defined by $rho (sigma)$ (@probability). Variables of state can then be calculated as the average of the microscopic variable.
 
 For this simulation these draws are generated by the following process:
 + Start with some randomly generated state.
@@ -114,7 +124,7 @@ The Hamiltonian of the system is divided into 2 terms. Only interactions between
     image("../figs/nearest_w.png", width: 100%), image("../figs/next_nearest_w.png", width: 100%),
     [],
   ),
-  caption: [Images showing the nearest and next nearest neighbors\ of #text("M'", M_PRIME_COLOR) around #text("M", M_COLOR) left, right respectively]
+  caption: [Images showing the nearest and next nearest neighbors@ray_tracer\ of #text("M'", M_PRIME_COLOR) around #text("M", M_COLOR) left, right respectively]
 )<neighbor>
 Let $I = {(i, j, k) | i+j+k eq.triple 1 (mod 2), 0 <= i, j, k, < 2N}$ be the set of all indexes of possible cyanometalate sites and $sigma_(i, j, k)$ the value at index $(i, j, k)$. With this notation we can express the hamiltonian in the following way:
 $
@@ -142,7 +152,7 @@ For the compiler to be able to fully optimize the program, where possible the si
 
 == Data Analysis
 On the `.mmcif` files produced by the simulation the command line tool `gemmi sfcalc` is run. This program calculates the structure factors using the fast Fourier transform for the crystal provided in the input file. `gemmi` is called from a python script which then converts the data into the `Yell` format.
-
+#pagebreak()
 
 = Results
 #align(center)[
@@ -168,12 +178,16 @@ On the `.mmcif` files produced by the simulation the command line tool `gemmi sf
 
 
 = Discussion
-In @e_plot phase transitions can be clearly recognized. The change of the structures can be seen in the diffraction pattern in @patterns.
+In @e_plot phase transitions can be clearly recognized. In the plot of the derivative of the internal energy with respect to temperature we can see the limitations of the Monte Carlo method at lower temperatures. This is to be expected as the at lower temperatures more ordered structures are expected. and the structure might be in a local minimum of energy which cannot be left because of the low thermal energy.
+The change of the structures can be seen in the diffraction pattern in @patterns. As expected we see very diffuse scattering at higher temperatures, while the diffraction patterns become more ordered at lower temperatures. The most surprising diffraction pattern was a)
 
 If further work on the simulation was to be made measurements of more different characteristic of the system might show more phase transition which cannot be interpreted from only the measurement of the energy of the system.
 
-Furthermore the simulation could be generalized to include more distant neighbor interactions to create a better approximation of the real crystals
+Furthermore the simulation could be generalized to include more distant neighbor interactions to create a better approximation of the real crystals.
 
+
+
+#bibliography("sources.bib")
 
 #pagebreak()
 
@@ -181,7 +195,7 @@ Furthermore the simulation could be generalized to include more distant neighbor
 
 == Considerations about the parameter space
 
-Lets consider the Boltzmann factor of a system where the hamiltonian $cal(H)$ can be described by the sum of two energies multiplied by the functions $s_1$ and $s_2$ on the state of the system $sigma$.
+Lets consider the Boltzmann factor of a system where the hamiltonian $cal(H)$ can be described by the sum of two energies multiplied by two functions $s_1$ and $s_2$ on the state of the system $sigma$.
 $ cal(H) (sigma) = J_1 s_1(sigma) + J_2 s_2(sigma) $
 Lets define two new variables $J'$ and $T'$ such that $J_2 J' = J_1$ and $J_2 T'= k_b T$.
 $ exp( - (cal(H)(sigma))/(k_b T)) 
