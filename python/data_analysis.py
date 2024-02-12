@@ -398,6 +398,17 @@ def get_sorted_energies_and_temps(run: str) -> tuple[list[str], list[str]]:
     return energies, temps
 
 
+def find_closest_point(run: str, j_prime: float, temp: float) -> tuple[str, str]:
+    j_primes, temps = get_sorted_energies_and_temps(run)
+    j_primes_float = [float(j) for j in j_primes]
+    temps_float = [np.log(float(t)) for t in temps]
+    j_idx = j_primes_float.index(min(j_primes_float, key=lambda j: abs(j_prime - j)))
+    temp_idx = temps_float.index(
+        min(temps_float, key=lambda ln_t: abs(ln_t - np.log(temp)))
+    )
+    return j_primes[j_idx], temps[temp_idx]
+
+
 def shrink_to_fit_non_nan(array: np.ndarray) -> np.ndarray:
     """
     takes an array which has a border of NaN values surrounding the concrete values

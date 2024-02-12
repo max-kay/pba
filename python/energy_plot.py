@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
-from data_analysis import get_sorted_energies_and_temps, Diffraction
+from data_analysis import find_closest_point, Diffraction
 
 rcParams["font.family"] = "serif"
 # rcParams["font.serif"] = ["Noto Serif Regular"]
@@ -42,9 +42,9 @@ d_energy = np.gradient(energies, axis=1) / np.gradient(temps, axis=1)
 fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
 
-example_j_primes = [0.4000001, 2.0, 5.6, 1.1999998, 4.0, 4.8]
-example_t_primes = [1.1663113, 5.4320016, 25.299109, 0.46336934, 0.46336934, 0.15784304]
-annotations = [chr(i + ord("a")) + ")" for i in range(len(example_j_primes))]
+example_j_primes = [0.4000001, 2.0, 5.6, 0.4000001, 1.1999998, 4.0]
+example_t_primes = [25.299109, 5.4320016, 25.299109, 1.1663113, 0.46336934, 0.46336934]
+annotations = [chr(i + ord("a")) + ")" for i in range(6)]
 
 
 im1 = axs[0].imshow(
@@ -93,13 +93,12 @@ fig.colorbar(
     label="ln(dU/dT)",
 )
 
-for string, point in zip(
-    annotations, zip(example_j_primes, [np.log(val) for val in example_t_primes])
-):
+for string, (j, t) in zip(annotations, zip(example_j_primes, example_t_primes)):
+    j_n, t_n = find_closest_point(run, j, t)
     for ax in axs:
         ax.text(
-            x=point[0],
-            y=point[1],
+            x=float(j_n),
+            y=np.log(float(t_n)),
             s=string,
             backgroundcolor="w",
             horizontalalignment="center",
@@ -108,37 +107,17 @@ for string, point in zip(
 
 
 plt.tight_layout()
+# plt.show()
 plt.savefig(f"figs/{run}.svg")
 
 
-e_str, temp_str = get_sorted_energies_and_temps(run)
+file_names = []
+for j, t in zip(example_j_primes, example_t_primes):
+    j_prime, t_prime = find_closest_point(run, j, t)
+    name = f"j_{j_prime}_t_{t_prime}.h5"
+    print(name)
+    file_names.append(name)
 
-e_float = [float(val) for val in e_str]
-temp_float = [float(val) for val in temp_str]
-
-new_temp = []
-for t_prime in example_t_primes:
-    for i in range(len(temp_float)):
-        if i == len(temp_float) - 1:
-            new_temp.append(temp_str[i])
-            break
-        if abs(t_prime - temp_float[i]) < abs(t_prime - temp_float[i + 1]):
-            new_temp.append(temp_str[i])
-            break
-
-new_e = []
-for t_prime in example_j_primes:
-    for i in range(len(e_float)):
-        if i == len(e_float) - 1:
-            new_e.append(e_str[i])
-            break
-
-        if abs(t_prime - e_float[i]) < abs(t_prime - e_float[i + 1]):
-            new_e.append(e_str[i])
-            break
-
-
-file_names = [f"j_{val[0]}_t_{val[1]}.h5" for val in zip(new_e, new_temp)]
 
 for i, file in enumerate(file_names):
     diff = Diffraction.read_yell(f"out/h5/{run}/{file}")
